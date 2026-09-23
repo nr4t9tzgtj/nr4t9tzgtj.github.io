@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="かんたんエレベーター">
+<title>かんたんエレベーター</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="theme-color" content="#3A5A8C">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=M+PLUS+Rounded+1c:wght@800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --wall:#3A5A8C; --plate:#D3D9DF; --plate-edge:#A9B3BC;
+  --frame:#8E98A3; --ink:#1E2A38; --amber:#FFA826; --led:#141414;
+  --btn:#EEF1F4; --lit:#FFB02E;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --wall:#22385A; --plate:#BCC4CC; --btn:#DCE1E6; }
+}
+:root[data-theme="dark"]{ --wall:#22385A; --plate:#BCC4CC; --btn:#DCE1E6; }
+*,*::before,*::after{ box-sizing:border-box; }
+html{ height:100%; scroll-padding-top:env(safe-area-inset-top,0px); }
+body{
+  height:100%; margin:0; background:var(--wall); color:var(--ink);
+  font-family:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  -webkit-tap-highlight-color:transparent; touch-action:manipulation; overflow:hidden;
+}
+button{ font-family:inherit; }
+.car{ height:100%; max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:10px; padding:10px 14px 14px; }
+.top{ display:flex; gap:10px; align-items:stretch; }
+.led{
+  flex:1; height:68px; background:var(--led); border-radius:12px; border:4px solid var(--frame);
+  display:flex; align-items:center; justify-content:center; gap:14px;
+  font-family:"DotGothic16","Courier New",monospace; color:var(--amber); text-shadow:0 0 10px rgba(255,168,38,.7);
+}
+.led .arrow{ font-size:30px; width:30px; text-align:center; }
+.led .num{ font-size:52px; line-height:1; min-width:64px; text-align:center; }
+.led .arrow.blink{ animation:blink .8s steps(2,start) infinite; }
+@keyframes blink{ to{ visibility:hidden; } }
+.led.full{ color:#FF4A3D; text-shadow:0 0 12px rgba(255,74,61,.8); }
+.led.full .arrow{ display:none; }
+.led.full .num{ font-size:40px; animation:blink .5s steps(2,start) infinite; }
+.snd,.mbtn{
+  position:relative; width:68px; height:68px; border-radius:50%; padding:0; cursor:pointer;
+  border:4px solid var(--plate-edge); background:var(--plate); color:var(--ink); font-size:28px;
+}
+.mbtn.active{ border-color:var(--lit); box-shadow:0 0 16px rgba(255,176,46,.9); animation:pulse 1.4s ease-in-out infinite; }
+@keyframes pulse{ 50%{ transform:scale(1.07); } }
+.mbtn .target{ font-weight:800; font-size:26px; color:#C46A00; }
+.mbtn .badge{ position:absolute; top:-6px; right:-6px; min-width:26px; height:26px; padding:0 6px; border-radius:13px; background:#E8453C; color:#fff; font-weight:800; font-size:14px; line-height:26px; }
+/* ドア */
+.frame{ position:relative; flex:1; min-height:150px; background:var(--frame); padding:10px 10px 0; border-radius:12px 12px 4px 4px; box-shadow:inset 0 -6px 0 rgba(0,0,0,.2); }
+.frame.moving{ animation:rumble .22s linear infinite; }
+@keyframes rumble{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(1.5px); } }
+.shaft{ position:relative; width:100%; height:100%; overflow:hidden; border-radius:4px 4px 0 0; cursor:pointer; }
+.scene{ position:absolute; inset:0; background:var(--sky); display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.scene::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:22%; background:var(--ground); z-index:0; }
+.actor{ position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; }
+.animal{ font-size:min(30vw,18vh); line-height:1.1; cursor:pointer; filter:drop-shadow(0 6px 0 rgba(0,0,0,.12)); }
+.animal.float{ animation:float 2.4s ease-in-out infinite; }
+@keyframes float{ 0%,100%{ transform:translateY(0) rotate(-4deg); } 50%{ transform:translateY(-14%) rotate(4deg); } }
+.animal.hop{ animation:hop .5s ease-out; }
+@keyframes hop{ 0%{ transform:translateY(0) scale(1); } 35%{ transform:translateY(-22%) scale(1.08,.94); } 70%{ transform:translateY(0) scale(.96,1.05); } 100%{ transform:none; } }
+.animal.gone{ visibility:hidden; }
+.names{ display:flex; gap:10px; margin-top:14px; }
+.nm{ cursor:pointer; background:#fff; border:2px solid #2B3440; border-radius:16px; padding:5px 14px 6px; font-weight:800; font-size:19px; line-height:1.1; color:var(--ink); box-shadow:0 3px 0 rgba(0,0,0,.28); }
+.nm.en{ font-family:"Avenir Next","Helvetica Neue",Arial,sans-serif; font-weight:700; color:#2458B8; }
+.nm:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.28); }
+.nm.talk{ background:#FFF4D6; border-color:#E07400; }
+.boarded{ display:none; margin-top:14px; font-size:18px; background:rgba(255,255,255,.92); border-radius:14px; padding:4px 14px; }
+.actor.away .names{ display:none; } .actor.away .boarded{ display:block; }
+.door{
+  position:absolute; top:0; bottom:0; width:50%; z-index:2;
+  background:linear-gradient(90deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.45) 45%, rgba(255,255,255,0) 60%), repeating-linear-gradient(90deg,#D9DEE3 0 2px,#CBD2D8 2px 5px);
+  transition:transform 1.1s cubic-bezier(.45,.05,.35,1);
+}
+.door.l{ left:0; border-right:1px solid #8A949E; }
+.door.r{ right:0; border-left:1px solid #8A949E; }
+.shaft.open .door.l{ transform:translateX(-100%); }
+.shaft.open .door.r{ transform:translateX(100%); }
+/* ゆか・のっているみんな */
+.riders{ position:absolute; left:10px; right:10px; bottom:6px; z-index:3; display:flex; justify-content:center; align-items:flex-end; gap:6px; pointer-events:none; }
+.rider{ position:relative; pointer-events:auto; background:none; border:0; padding:0 2px; cursor:pointer; font-size:clamp(38px,11.5vw,56px); line-height:1.05; }
+.rider .bd{ display:inline-block; }
+.rider::after{ content:""; position:absolute; left:20%; right:20%; bottom:-2px; height:6px; z-index:-1; background:rgba(0,0,0,.18); border-radius:50%; }
+.rider.float::after{ left:30%; right:30%; opacity:.5; }
+.rider.float .bd{ animation:float 2.4s ease-in-out infinite; }
+.rider.hop .bd{ animation:hop .5s ease-out; }
+.rider.in .bd{ animation:riderIn .4s ease-out; }
+@keyframes riderIn{ 0%{ transform:translateY(-60%) scale(1.4); opacity:0; } 100%{ transform:none; opacity:1; } }
+.riders.shake .rider{ animation:shake .15s linear 6; }
+@keyframes shake{ 25%{ transform:translateX(-4px); } 75%{ transform:translateX(4px); } }
+/* ボタン */
+.panel{ background:var(--plate); border:4px solid var(--plate-edge); border-radius:18px; padding:12px; display:flex; flex-direction:column; gap:12px; }
+.floors{ display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
+.dir{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.btn{
+  aspect-ratio:1; border-radius:50%; border:4px solid var(--plate-edge);
+  background:radial-gradient(circle at 35% 30%,#fff,var(--btn) 55%,#C9D0D7);
+  color:var(--ink); font-weight:800; font-size:clamp(18px,5.6vw,30px); line-height:1;
+  box-shadow:0 4px 0 #8E98A3; cursor:pointer; padding:0;
+  display:flex; align-items:center; justify-content:center;
+  transition:transform .08s, box-shadow .2s, border-color .2s, color .2s;
+}
+.btn.wide{ aspect-ratio:auto; height:66px; border-radius:33px; }
+.btn.wide svg{ width:60px; height:30px; }
+.btn:active{ transform:translateY(3px) scale(.96); box-shadow:0 1px 0 #8E98A3; }
+.btn.lit{ border-color:var(--lit); color:#C46A00; box-shadow:0 0 0 3px rgba(255,176,46,.35),0 0 18px rgba(255,176,46,.85),0 4px 0 #8E98A3; }
+.btn:focus-visible,.snd:focus-visible,.mbtn:focus-visible,.start:focus-visible{ outline:4px solid #fff; outline-offset:3px; }
+/* はなまる */
+.hana{ position:absolute; inset:0; z-index:6; display:none; align-items:center; justify-content:center; pointer-events:none; }
+.hana.show{ display:flex; }
+.hana-box{ position:relative; width:min(78%,260px); aspect-ratio:1; }
+.hana-box svg{ width:100%; height:100%; display:block; }
+.hana .bg{ fill:rgba(255,255,255,.92); }
+.hana .ring{ fill:none; stroke:#E8453C; stroke-width:11; stroke-linecap:round; stroke-dasharray:503; stroke-dashoffset:503; animation:draw .7s ease-out forwards; transform:rotate(-90deg); transform-origin:100px 100px; }
+.hana .ring.r2{ stroke-dasharray:365; stroke-dashoffset:365; animation-delay:.35s; }
+@keyframes draw{ to{ stroke-dashoffset:0; } }
+.hana-txt{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:clamp(22px,7vw,32px); color:#E8453C; }
+.petal{ position:absolute; font-size:clamp(26px,8vw,40px); transform:translate(-50%,-50%) scale(0); animation:pop .5s ease-out forwards; }
+@keyframes pop{ 0%{ transform:translate(-50%,-50%) scale(0); } 70%{ transform:translate(-50%,-50%) scale(1.3); } 100%{ transform:translate(-50%,-50%) scale(1); } }
+/* スタート */
+.cover{ position:fixed; inset:0; z-index:10; background:var(--wall); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:28px; }
+.cover.hide{ display:none; }
+.cover .icon{ font-size:110px; line-height:1; }
+.start{ font-weight:800; font-size:30px; line-height:1; color:#C46A00; cursor:pointer; background:radial-gradient(circle at 35% 30%,#fff,var(--btn) 60%,#C9D0D7); border:5px solid var(--lit); border-radius:48px; padding:24px 44px; box-shadow:0 0 24px rgba(255,176,46,.8),0 5px 0 #8E98A3; }
+.start:active{ transform:translateY(3px); }
+@media (max-height:640px){
+  .led,.snd,.mbtn{ height:56px; } .snd,.mbtn{ width:56px; font-size:24px; }
+  .led .num{ font-size:40px; } .btn.wide{ height:54px; }
+  .panel{ padding:10px; gap:10px; }
+}
+@media (prefers-reduced-motion: reduce){
+  .door{ transition-duration:.4s; } .frame.moving{ animation:none; }
+  .animal.hop,.animal.float,.rider,.rider .bd{ animation:none !important; }
+  .hana .ring{ animation:none; stroke-dashoffset:0; } .petal{ animation:none; transform:translate(-50%,-50%); }
+}
+</style>
+</head>
+<body>
+<div class="cover" id="cover">
+  <div class="icon" aria-hidden="true">🛗</div>
+  <button class="start" id="startBtn">タッチしてスタート</button>
+</div>
+
+<main class="car">
+  <div class="top">
+    <div class="led" aria-live="polite"><span class="arrow" id="arrow"></span><span class="num" id="num">1</span></div>
+    <button class="mbtn" id="missionBtn" aria-label="おつかいミッション">🎯</button>
+    <button class="snd" id="snd" aria-label="おと オン・オフ">🔊</button>
+  </div>
+
+  <div class="frame" id="frame">
+    <div class="shaft" id="shaft" aria-label="ドア">
+      <div class="scene" id="scene">
+        <div class="actor"><div class="animal" id="animal"></div><div class="names" id="names"><button class="nm ja" id="nameJa"></button><button class="nm en" id="nameEn"></button></div></div>
+      </div>
+      <div class="door l"></div>
+      <div class="door r"></div>
+      <div class="hana" id="hana" aria-hidden="true">
+        <div class="hana-box" id="hanaBox">
+          <svg viewBox="0 0 200 200"><circle class="bg" cx="100" cy="100" r="92"/><circle class="ring" cx="100" cy="100" r="80"/><circle class="ring r2" cx="100" cy="100" r="58"/></svg>
+          <div class="hana-txt">せいかい！</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="floors" id="floors"></div>
+    <div class="dir">
+      <button class="btn wide" id="openBtn" aria-label="ドアをあける">
+        <svg viewBox="0 0 64 32" aria-hidden="true"><path d="M4 16 20 4v24zM60 16 44 4v24z" fill="currentColor"/><rect x="30" y="2" width="4" height="28" rx="1" fill="currentColor"/></svg>
+      </button>
+      <button class="btn wide" id="closeBtn" aria-label="ドアをしめる">
+        <svg viewBox="0 0 64 32" aria-hidden="true"><path d="M26 16 10 4v24zM38 16 54 4v24z" fill="currentColor"/><rect x="30" y="2" width="4" height="28" rx="1" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </div>
+</main>
+<script>
+(function(){
+  // [えもじ, なまえ, えいご, なきごえ・うごきのおと, オプション]  ※ぜんぶ全身の絵
+  const ANIMALS = [
+    ["🐕","いぬ","Dog","わんわん！"],            ["🐈","ねこ","Cat","にゃーお"],
+    ["🐘","ぞう","Elephant","ぱおーん！"],       ["🦒","きりん","Giraffe","のびーる"],
+    ["🐧","ぺんぎん","Penguin","ぺたぺた"],      ["🐖","ぶた","Pig","ぶーぶー"],
+    ["🐄","うし","Cow","もーもー"],              ["🐓","にわとり","Rooster","こけこっこー！"],
+    ["🐒","さる","Monkey","うっきっき"],          ["🐇","うさぎ","Rabbit","ぴょんぴょん"],
+    ["🐁","ねずみ","Mouse","ちゅーちゅー"],       ["🐅","とら","Tiger","がるるる"],
+    ["🐎","うま","Horse","ひひーん！"],           ["🐑","ひつじ","Sheep","めえめえ"],
+    ["🦆","かも","Duck","があがあ"],              ["🐙","たこ","Octopus","にょろにょろ"],
+    ["🐳","くじら","Whale","ざぶーん！"],         ["🦖","きょうりゅう","Dinosaur","がおおおー！"],
+    ["🐢","かめ","Turtle","のそのそ"],            ["🦉","ふくろう","Owl","ほーほー"],
+    ["🦓","しまうま","Zebra","ぱっかぱっか"],     ["🐊","わに","Crocodile","ぱっくん！"],
+    ["🦘","かんがるー","Kangaroo","ぴょーん！"],  ["🦛","かば","Hippo","がばー！"],
+    ["🐿️","りす","Squirrel","かりかり"],          ["🦔","はりねずみ","Hedgehog","ちくちく"],
+    ["🐬","いるか","Dolphin","きゅいきゅい"],     ["🦩","ふらみんご","Flamingo","ばさばさ"],
+    ["🐫","らくだ","Camel","のっしのっし"],       ["🦜","おうむ","Parrot","こんにちは！"],
+    ["👻","おばけ","Ghost","ばあ！",{float:true, color:["#CDBDF2","#A48FDB"]}]
+  ];
+  const ORD = ["","First","Second","Third","Fourth","Fifth","Sixth","Seventh","Eighth","Ninth","Tenth",
+               "Eleventh","Twelfth","Thirteenth","Fourteenth","Fifteenth"];
+  const COLORS = [
+    ["#A8DDA0","#6DBA64"], ["#F7C6D9","#E693B3"], ["#FFE08A","#E8B84A"], ["#FFC58F","#E0914A"],
+    ["#BFE6FA","#FFFFFF"], ["#D6C8F5","#A993E0"], ["#B8ECE3","#6CC7B6"], ["#FFD1C1","#F09A7E"]
+  ];
+  const LEVELS = [
+    { label:"B2", short:"ちか2かい", en:"Basement two." },
+    { label:"B1", short:"ちか1かい", en:"Basement one." }
+  ];
+  for(let n=1; n<=15; n++) LEVELS.push({ label:String(n), short:n+"かい", en:ORD[n]+" floor." });
+  LEVELS.push({ label:"R", short:"おくじょう", en:"Rooftop." });
+  LEVELS.forEach(lv=>{
+    lv.ja    = lv.short+"です";
+    lv.go    = lv.short+"に いってね！";
+    lv.where = lv.short+"は どこかな？";
+  });
+  const START = 2; // 1階
+
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const DOOR_MS = reduce ? 450 : 1150;
+
+  const $ = id => document.getElementById(id);
+  const shaft=$("shaft"), frame=$("frame"), numEl=$("num"), arrowEl=$("arrow"), sceneEl=$("scene");
+  const animalEl=$("animal"), sndBtn=$("snd");
+  const actorEl=animalEl.parentElement, nameJa=$("nameJa"), nameEn=$("nameEn");
+
+  let cur=START, moving=false, queue=[], doorState="closed", lastDir=1;
+  let doorTimer=null, autoTimer=null, moveTimer=null;
+  let animal=null, lastAnimal=-1, lastColor=-1;
+  const CAP = 4; // ていいん
+  let riders=[], sceneHas=false;
+  let mission=null, stars=0;
+  try{ stars=parseInt(localStorage.getItem("elvs-stars")||"0",10)||0; }catch(e){}
+  let soundOn=true;
+  try{ if(localStorage.getItem("elvs-sound")==="off") soundOn=false; }catch(e){}
+  sndBtn.textContent = soundOn ? "🔊" : "🔇";
+
+  // ---- ボタン：6列×3段。左下B2 → 右上R ----
+  const floorBtns={};
+  const floorsEl=$("floors");
+  const COLS=6, ROWS=Math.ceil(LEVELS.length/COLS);
+  for(let row=ROWS-1; row>=0; row--){
+    for(let c=0; c<COLS; c++){
+      const f=row*COLS+c; if(f>=LEVELS.length) continue;
+      const lv=LEVELS[f], b=document.createElement("button");
+      b.className="btn"; b.textContent=lv.label; b.setAttribute("aria-label", lv.short);
+      b.addEventListener("click", ()=>pressFloor(f));
+      floorsEl.appendChild(b); floorBtns[f]=b;
+    }
+  }
+  const light = f => floorBtns[f].classList.add("lit");
+  const unlight = f => floorBtns[f].classList.remove("lit");
+
+  // ---- サウンド ----
+  let ac=null, hum=null;
+  function ctx(){
+    if(!ac){ try{ ac=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } }
+    if(ac.state==="suspended"){ try{ ac.resume(); }catch(e){} }
+    return ac;
+  }
+  // 最初のタップで効果音を使えるようにする
+  function unlockAudio(){
+    const a=ctx();
+    if(a){
+      try{ const b=a.createBuffer(1,1,22050), src=a.createBufferSource(); src.buffer=b; src.connect(a.destination); src.start(0); }catch(e){}
+    }
+  }
+  document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && ac) ctx(); });
+
+  function tone(freq, at, dur, type, vol){
+    const a=ctx(); if(!a||!soundOn) return;
+    const t=a.currentTime+at, o=a.createOscillator(), g=a.createGain();
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(vol,t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t+dur+0.05);
+  }
+  const beep = () => tone(1320,0,0.09,"square",0.05);
+  const tick = () => tone(900,0,0.05,"sine",0.06);
+  // 上りで着いたら「ポーン」1回、下りなら「ポン、ポーン」2回（本物と同じ）
+  const buzzer = () => {
+    const a=ctx(); if(!a||!soundOn) return;
+    const t=a.currentTime, o=a.createOscillator(), g=a.createGain();
+    o.type="square"; o.frequency.value=210;
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.09,t+0.02);
+    g.gain.setValueAtTime(0.09,t+1.1); g.gain.exponentialRampToValueAtTime(0.0001,t+1.25);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t+1.3);
+  };
+  const fanfare = () => {
+    [523.25,659.25,783.99].forEach((f,i)=>tone(f,i*0.14,0.3,"triangle",0.22));
+    tone(1046.5,0.42,1.2,"triangle",0.25);
+  };
+  const ding = dir => {
+    if(dir<0){ tone(1318.5,0,0.9,"sine",0.25); tone(1046.5,0.35,1.6,"sine",0.25); }
+    else     { tone(1318.5,0,1.8,"sine",0.28); }
+  };
+  function whoosh(){
+    const a=ctx(); if(!a||!soundOn) return;
+    const len=Math.floor(a.sampleRate*1.1), buf=a.createBuffer(1,len,a.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+    const s=a.createBufferSource(); s.buffer=buf;
+    const f=a.createBiquadFilter(); f.type="bandpass"; f.Q.value=0.8;
+    const g=a.createGain(), t=a.currentTime;
+    f.frequency.setValueAtTime(400,t); f.frequency.linearRampToValueAtTime(1200,t+0.5); f.frequency.linearRampToValueAtTime(500,t+1.1);
+    g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.06,t+0.2); g.gain.linearRampToValueAtTime(0.0001,t+1.1);
+    s.connect(f).connect(g).connect(a.destination); s.start(t);
+  }
+  function humStart(){
+    const a=ctx(); if(!a||!soundOn||hum) return;
+    const o=a.createOscillator(), f=a.createBiquadFilter(), g=a.createGain(), t=a.currentTime;
+    o.type="sawtooth"; o.frequency.value=62; f.type="lowpass"; f.frequency.value=180;
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.05,t+0.4);
+    o.connect(f).connect(g).connect(a.destination); o.start(); hum={o,g};
+  }
+  function humStop(){
+    if(!hum||!ac) return;
+    const t=ac.currentTime;
+    hum.g.gain.cancelScheduledValues(t); hum.g.gain.setValueAtTime(hum.g.gain.value,t);
+    hum.g.gain.linearRampToValueAtTime(0,t+0.3); hum.o.stop(t+0.35); hum=null;
+  }
+
+  // ---- アナウンス（日本語 → 英語） ----
+  const hasTTS = "speechSynthesis" in window;
+  let sayTimer=null;
+  function utter(text, lang){
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang = lang==="en" ? "en-US" : "ja-JP";
+    u.rate = lang==="en" ? 0.9 : 0.95; u.pitch = 1.15;
+    return u;
+  }
+  // ひとつの言葉だけよむ（なまえタッチ用）
+  function sayOne(text, lang){
+    if(!soundOn||!hasTTS) return;
+    const go=()=>{ try{ speechSynthesis.resume(); speechSynthesis.speak(utter(text,lang)); }catch(e){} };
+    const busy = speechSynthesis.speaking || speechSynthesis.pending;
+    clearTimeout(sayTimer);
+    if(busy){ try{ speechSynthesis.cancel(); }catch(e){} sayTimer=setTimeout(go,120); } else go();
+  }
+  // queue=true のときは前のアナウンスを最後まで言ってから続ける
+  function say(ja, en, queue){
+    if(!soundOn||!hasTTS) return;
+    const go=()=>{
+      try{
+        speechSynthesis.resume();
+        speechSynthesis.speak(utter(ja,"ja"));
+        if(en) speechSynthesis.speak(utter(en,"en"));
+      }catch(e){}
+    };
+    clearTimeout(sayTimer);
+    const busy = speechSynthesis.speaking || speechSynthesis.pending;
+    if(!queue && busy){
+      try{ speechSynthesis.cancel(); }catch(e){}
+      sayTimer=setTimeout(go, 120);
+    }else{
+      go();
+    }
+  }
+
+  // ---- 表示 ----
+  // ひみつの手順：9 → 6 → 2 の順に止まると、かならずおばけが出る
+  const SECRET=["9","6","2"], GHOST=ANIMALS.findIndex(x=>x[0]==="👻");
+  let stops=[];
+  function setHall(i, forceGhost){
+    let a;
+    if(forceGhost) a=GHOST;
+    else do{ a=Math.floor(Math.random()*ANIMALS.length); }while(a===lastAnimal && ANIMALS.length>1);
+    lastAnimal=a; animal=ANIMALS[a];
+    const opt=animal[4]||{};
+    let c; do{ c=Math.floor(Math.random()*COLORS.length); }while(c===lastColor);
+    lastColor=c; const col=opt.color||COLORS[c];
+    sceneEl.style.setProperty("--sky", col[0]); sceneEl.style.setProperty("--ground", col[1]);
+    animalEl.classList.toggle("float", !!opt.float);
+    animalEl.textContent=animal[0];
+    nameJa.textContent=animal[1]; nameEn.textContent=animal[2];
+    nameJa.setAttribute("aria-label", animal[1]+" をよむ"); nameEn.setAttribute("aria-label", animal[2]+" をよむ");
+    animalEl.classList.remove("gone"); actorEl.classList.remove("away"); sceneHas=true;
+  }
+
+  // ---- おつかいミッション ----
+  const missionBtn=$("missionBtn");
+  function renderMission(){
+    if(mission===null){
+      missionBtn.innerHTML="🎯"+(stars?'<span class="badge">'+stars+'</span>':"");
+      missionBtn.classList.remove("active");
+    }else{
+      missionBtn.innerHTML='<span class="target">'+LEVELS[mission].label+'</span>';
+      missionBtn.classList.add("active");
+    }
+  }
+  missionBtn.addEventListener("click", ()=>{
+    beep();
+    if(mission===null){
+      let t; do{ t=Math.floor(Math.random()*LEVELS.length); }while(t===cur);
+      mission=t; renderMission();
+    }
+    say(LEVELS[mission].go);
+  });
+  const hana=$("hana"), hanaBox=$("hanaBox");
+  let hanaTimer=null;
+  function celebrate(){
+    fanfare();
+    hanaBox.querySelectorAll(".petal").forEach(p=>p.remove());
+    for(let k=0;k<8;k++){
+      const a=k/8*Math.PI*2, p=document.createElement("span");
+      p.className="petal"; p.textContent="🌸";
+      p.style.left=(50+50*Math.sin(a))+"%"; p.style.top=(50-50*Math.cos(a))+"%";
+      p.style.animationDelay=(0.6+k*0.06)+"s";
+      hanaBox.appendChild(p);
+    }
+    hana.classList.remove("show"); void hana.offsetWidth; hana.classList.add("show");
+    clearTimeout(hanaTimer); hanaTimer=setTimeout(()=>hana.classList.remove("show"), 3000);
+  }
+  function setArrow(dir){
+    arrowEl.textContent = dir>0 ? "▲" : dir<0 ? "▼" : "";
+    arrowEl.classList.toggle("blink", dir!==0);
+  }
+
+  // ---- ドア ----
+  function scheduleAuto(){
+    clearTimeout(autoTimer);
+    autoTimer=setTimeout(closeDoors, queue.length ? 2600 : 8000);
+  }
+  function openDoors(quiet){
+    if(moving) return;
+    clearTimeout(autoTimer);
+    if(doorState==="open"){ scheduleAuto(); return; }
+    if(doorState==="opening") return;
+    if(!quiet) say("ドアがひらきます","Doors opening.");
+    doorState="opening"; shaft.classList.add("open"); whoosh();
+    clearTimeout(doorTimer);
+    doorTimer=setTimeout(()=>{ doorState="open"; scheduleAuto(); }, DOOR_MS);
+  }
+  function closeDoors(){
+    if(doorState==="closed"||doorState==="closing") return;
+    clearTimeout(autoTimer);
+    say("ドアがしまります。ごちゅうい ください。","Doors closing.");
+    doorState="closing"; shaft.classList.remove("open"); whoosh();
+    clearTimeout(doorTimer);
+    doorTimer=setTimeout(()=>{ doorState="closed"; processQueue(); }, DOOR_MS);
+  }
+
+  // ---- 移動 ----
+  function arrive(dir){
+    stops.push(LEVELS[cur].label); if(stops.length>SECRET.length) stops.shift();
+    const secret = stops.join()===SECRET.join();
+    setHall(cur, secret); ding(dir);
+    const hit = mission!==null && mission===cur;
+    const pending = mission;
+    setTimeout(()=>{
+      say(LEVELS[cur].ja, LEVELS[cur].en);
+      if(hit) say("せいかい！ すごいね！", null, true);
+      else if(pending!==null) say(LEVELS[pending].where, null, true);
+    }, 700);
+    if(hit){
+      mission=null; stars++;
+      try{ localStorage.setItem("elvs-stars", String(stars)); }catch(e){}
+      setTimeout(()=>{ celebrate(); renderMission(); }, 1700);
+    }
+    setTimeout(()=>openDoors(true), 1600);
+  }
+  function processQueue(){
+    if(moving||doorState!=="closed"||!queue.length) return;
+    const target=queue[0];
+    if(target===cur){ queue.shift(); unlight(target); arrive(lastDir); return; }
+    moving=true;
+    const dir = target>cur ? 1 : -1; lastDir=dir;
+    const stepMs = Math.abs(target-cur)>=5 ? 650 : 950;
+    setArrow(dir); frame.classList.add("moving"); humStart();
+    say(dir>0 ? "うえにまいります" : "したにまいります", dir>0 ? "Going up." : "Going down.", true);
+    const step=()=>{
+      cur+=dir; numEl.textContent=LEVELS[cur].label; tick();
+      if(cur===target){
+        moving=false; queue.shift(); unlight(target);
+        humStop(); frame.classList.remove("moving"); setArrow(0);
+        arrive(dir);
+      }else{
+        moveTimer=setTimeout(step, stepMs);
+      }
+    };
+    moveTimer=setTimeout(step, 1600);
+  }
+
+  // ---- 操作 ----
+  function pressFloor(f){
+    beep();
+    if(!moving && f===cur && !queue.length && doorState!=="closing"){ openDoors(); return; }
+    if(!queue.includes(f)){ queue.push(f); light(f); }
+    if(doorState==="open") scheduleAuto();
+    else if(doorState==="closed") processQueue();
+  }
+  $("openBtn").addEventListener("click", ()=>{ beep(); openDoors(); });
+  $("closeBtn").addEventListener("click", ()=>{ beep(); if(!moving) closeDoors(); });
+  shaft.addEventListener("click", ()=>{ if(doorState==="closed" && !moving){ beep(); openDoors(); } });
+  animalEl.addEventListener("animationend", e=>{ if(e.animationName==="hop") animalEl.classList.remove("hop"); });
+  // 動物をタッチ → ぴょんと跳ねて鳴き声（おばけは「ばあ！」）
+  animalEl.addEventListener("click", e=>{
+    if(doorState!=="open" && doorState!=="opening") return;
+    e.stopPropagation();
+    animalEl.classList.remove("hop"); void animalEl.offsetWidth; animalEl.classList.add("hop");
+    say(animal[3]);
+    if(doorState==="open") scheduleAuto();
+  });
+  // なまえをタッチ → ひらがなは日本語、えいごは英語でよむ
+  function tapName(btn, lang){
+    return e=>{
+      e.stopPropagation();
+      if(doorState!=="open" && doorState!=="opening") return;
+      sayOne(btn.textContent, lang);
+      btn.classList.add("talk"); setTimeout(()=>btn.classList.remove("talk"), 700);
+      if(doorState==="open") scheduleAuto();
+    };
+  }
+  nameJa.addEventListener("click", tapName(nameJa,"ja"));
+  nameEn.addEventListener("click", tapName(nameEn,"en"));
+  sndBtn.addEventListener("click", ()=>{
+    soundOn=!soundOn;
+    sndBtn.textContent = soundOn ? "🔊" : "🔇";
+    if(!soundOn){ humStop(); try{ speechSynthesis.cancel(); }catch(e){} }
+    else { unlockAudio(); beep(); if(moving) humStart(); }
+    try{ localStorage.setItem("elvs-sound", soundOn ? "on" : "off"); }catch(e){}
+  });
+  $("startBtn").addEventListener("click", ()=>{
+    unlockAudio();
+    beep();
+    say("エレベーターに のろう！");
+    $("cover").classList.add("hide");
+  });
+  document.addEventListener("touchstart", ()=>{}, {passive:true});
+  document.addEventListener("dblclick", e=>e.preventDefault());
+
+  setHall(cur);
+  renderMission();
+})();
+</script>
+<script>
+if("serviceWorker" in navigator){ addEventListener("load", ()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
+</script>
+</body>
+</html>
