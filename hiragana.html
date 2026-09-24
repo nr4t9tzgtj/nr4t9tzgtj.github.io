@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>あいうえお</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🅰️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sky:#e4f4ff; --ink:#22324a; --steel:#cfd8e0; --steel2:#eef2f5; --frame:#7d8a99; --lamp:#ffcf3f;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{margin:0;min-height:100%;background:var(--sky);color:var(--ink);
+  font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Rounded Mplus 1c",system-ui,sans-serif;touch-action:manipulation}
+body{padding:env(safe-area-inset-top,0) 10px env(safe-area-inset-bottom,0)}
+button{font-family:inherit;color:var(--ink);cursor:pointer}
+
+header{display:flex;gap:10px;justify-content:center;padding:14px 0 12px}
+.tab{font-size:22px;font-weight:900;padding:10px 22px;border-radius:999px;border:3px solid var(--ink);background:#fff}
+.tab.on{background:var(--ink);color:#fff}
+
+/* 50音ひょう */
+#grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;max-width:520px;margin:0 auto 24px}
+.cell{aspect-ratio:1;border:none;border-radius:20px;font-size:clamp(30px,9.5vw,50px);font-weight:900;
+  box-shadow:0 5px 0 rgba(34,50,74,.25);transition:transform .08s}
+.cell:active{transform:translateY(4px);box-shadow:0 1px 0 rgba(34,50,74,.25)}
+.gap{visibility:hidden}
+
+/* あてっこ */
+#quiz{display:none;max-width:520px;margin:0 auto;text-align:center}
+#qsay{font-size:30px;font-weight:900;border:none;background:#fff;border-radius:24px;padding:14px 26px;margin:6px 0 18px;box-shadow:0 5px 0 rgba(34,50,74,.2)}
+#choices{display:flex;flex-direction:column;gap:16px;align-items:center}
+.choice{width:min(70vw,260px);aspect-ratio:1.6;border:none;border-radius:28px;font-size:clamp(70px,22vw,110px);font-weight:900;box-shadow:0 7px 0 rgba(34,50,74,.25)}
+.choice:active{transform:translateY(5px);box-shadow:0 2px 0 rgba(34,50,74,.25)}
+.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-12px)}50%{transform:translateX(12px)}75%{transform:translateX(-6px)}}
+#stars{font-size:28px;min-height:40px;margin-top:18px;word-break:break-all}
+
+/* エレベーター */
+#ov{position:fixed;inset:0;background:rgba(34,50,74,.55);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:10;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+#ov.show{display:flex}
+.panel{background:var(--frame);border-radius:16px;padding:6px 26px;display:flex;align-items:center;gap:10px}
+.lamp{width:22px;height:22px;border-radius:50%;background:#56606b;transition:background .2s}
+#ov.open .lamp{background:var(--lamp);box-shadow:0 0 14px var(--lamp)}
+#floor{font-size:34px;font-weight:900;color:#ffb347;min-width:44px;text-align:center;font-family:inherit}
+.frame{width:min(86vw,400px);height:min(62vh,500px);background:var(--frame);border-radius:26px 26px 8px 8px;padding:14px}
+.inside{position:relative;width:100%;height:100%;background:#fffdf6;border-radius:14px 14px 4px 4px;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center}
+.door{position:absolute;top:0;bottom:0;width:50%;background:linear-gradient(90deg,var(--steel),var(--steel2) 50%,var(--steel));
+  transition:transform .8s cubic-bezier(.6,0,.3,1);z-index:2}
+.door.l{left:0;border-right:2px solid #97a3ae}
+.door.r{right:0;border-left:2px solid #97a3ae}
+#ov.open .door.l{transform:translateX(-100%)}
+#ov.open .door.r{transform:translateX(100%)}
+#big{font-size:min(38vw,190px);font-weight:900;line-height:1}
+#emo{font-size:min(18vw,90px);line-height:1.1;margin-top:4px}
+#word{font-size:min(9vw,40px);font-weight:700;margin-top:6px}
+#word b{color:#ff5a5f}
+#yay{font-size:32px;font-weight:900;color:#ff5a5f;min-height:0}
+.ctrl{display:flex;gap:14px}
+.ctrl button{width:74px;height:74px;border-radius:50%;border:none;background:#fff;font-size:34px;box-shadow:0 5px 0 rgba(0,0,0,.25)}
+.ctrl button:active{transform:translateY(4px);box-shadow:0 1px 0 rgba(0,0,0,.25)}
+.ctrl .hide{visibility:hidden}
+@media (prefers-reduced-motion:reduce){.door{transition-duration:.01s}}
+</style>
+</head>
+<body>
+
+<header>
+  <button class="tab on" id="tabSee">みる</button>
+  <button class="tab" id="tabQuiz">あてっこ</button>
+</header>
+
+<main>
+  <div id="grid"></div>
+  <section id="quiz">
+    <button id="qsay">🔊 どれかな？</button>
+    <div id="choices"></div>
+    <div id="stars"></div>
+  </section>
+</main>
+
+<div id="ov">
+  <div class="panel"><div class="lamp"></div><div id="floor">あ</div><div class="lamp"></div></div>
+  <div class="frame">
+    <div class="inside">
+      <div id="yay"></div>
+      <div id="big">あ</div>
+      <div id="emo">🐜</div>
+      <div id="word">あり</div>
+      <div class="door l"></div><div class="door r"></div>
+    </div>
+  </div>
+  <div class="ctrl">
+    <button id="prev">◀</button>
+    <button id="again">🔊</button>
+    <button id="next">▶</button>
+    <button id="close">✖</button>
+  </div>
+</div>
+
+<script>
+// [もじ, えもじ, ことば]
+const ROWS = [
+  [["あ","🐜","あり"],["い","🐶","いぬ"],["う","🐰","うさぎ"],["え","🦐","えび"],["お","🍙","おにぎり"]],
+  [["か","🐸","かえる"],["き","🦒","きりん"],["く","🐻","くま"],["け","🍰","けーき"],["こ","🐨","こあら"]],
+  [["さ","🐟","さかな"],["し","🦌","しか"],["す","🍉","すいか"],["せ","🧼","せっけん"],["そ","🛷","そり"]],
+  [["た","🥚","たまご"],["ち","🧀","ちーず"],["つ","🌙","つき"],["て","🖐️","て"],["と","🍅","とまと"]],
+  [["な","🍆","なす"],["に","🥕","にんじん"],["ぬ","🧸","ぬいぐるみ"],["ね","🐱","ねこ"],["の","🚃","のりもの"]],
+  [["は","🌸","はな"],["ひ","🐤","ひよこ"],["ふ","🎈","ふうせん"],["へ","🐍","へび"],["ほ","⭐","ほし"]],
+  [["ま","🥭","まんごー"],["み","🍊","みかん"],["む","🐛","むし"],["め","👓","めがね"],["も","🍑","もも"]],
+  [["や","🐐","やぎ"],null,["ゆ","⛄","ゆきだるま"],null,["よ","⛵","よっと"]],
+  [["ら","🦁","らいおん"],["り","🍎","りんご"],["る","🔍","るーぺ"],["れ","🍋","れもん"],["ろ","🚀","ろけっと"]],
+  [["わ","🐊","わに"],null,null,null,["を","📖","ほんを よむ"]],
+  [["ん","🍞","ぱん"],null,null,null,null],
+];
+const COLORS = ["#ffb3b8","#ffd29a","#fff08a","#bff0a8","#9fe6d8","#a8d8ff","#c7b8ff","#ffc2ea","#ffcfa8","#d3e89a","#b8e0ff"];
+const ALL = []; // {ch,emo,word,color}
+ROWS.forEach((r,ri)=>r.forEach(c=>{ if(c) ALL.push({ch:c[0],emo:c[1],word:c[2],color:COLORS[ri]}); }));
+
+const $ = id => document.getElementById(id);
+
+// ---------- おと ----------
+let ac;
+function ding(){
+  try{
+    ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+    [[988,0],[784,.28]].forEach(([f,t])=>{
+      const o=ac.createOscillator(), g=ac.createGain();
+      o.type="sine"; o.frequency.value=f;
+      const s=ac.currentTime+t;
+      g.gain.setValueAtTime(0,s); g.gain.linearRampToValueAtTime(.3,s+.02); g.gain.exponentialRampToValueAtTime(.001,s+1);
+      o.connect(g).connect(ac.destination); o.start(s); o.stop(s+1.05);
+    });
+  }catch(e){}
+}
+let jaVoice=null;
+function pickVoice(){
+  const v = speechSynthesis.getVoices().filter(v=>v.lang && v.lang.startsWith("ja"));
+  jaVoice = v.find(x=>/Kyoko|O-ren|Nanami|Google/.test(x.name)) || v[0] || null;
+}
+if("speechSynthesis" in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function say(...texts){
+  if(!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  texts.forEach(t=>{
+    const u=new SpeechSynthesisUtterance(t);
+    u.lang="ja-JP"; u.rate=.8; u.pitch=1.15; if(jaVoice) u.voice=jaVoice;
+    speechSynthesis.speak(u);
+  });
+}
+
+// ---------- ひょう ----------
+const grid=$("grid");
+ROWS.forEach((r,ri)=>r.forEach(c=>{
+  const b=document.createElement("button");
+  if(!c){ b.className="cell gap"; b.tabIndex=-1; }
+  else{
+    b.className="cell"; b.textContent=c[0]; b.style.background=COLORS[ri];
+    b.onclick=()=>openCar(ALL.findIndex(x=>x.ch===c[0]),"see");
+  }
+  grid.appendChild(b);
+}));
+
+// ---------- エレベーター ----------
+const ov=$("ov");
+let cur=0, mode="see", busy=false;
+function fill(i){
+  const d=ALL[i];
+  $("big").textContent=d.ch;
+  $("floor").textContent=d.ch;
+  $("emo").textContent=d.emo;
+  $("word").innerHTML=d.word.replace(d.ch,"<b>"+d.ch+"</b>");
+  $("yay").textContent = mode==="quiz" ? "せいかい！🎉" : "";
+  $("prev").classList.toggle("hide",mode==="quiz");
+  $("next").classList.toggle("hide",mode==="quiz");
+}
+function speakCur(){
+  const d=ALL[cur];
+  if(mode==="quiz") say("せいかい！", d.ch, d.word);
+  else say(d.ch, d.word);
+}
+function openDoors(){
+  setTimeout(()=>{ ding(); ov.classList.add("open"); setTimeout(speakCur,650); busy=false; },250);
+}
+function openCar(i,m){
+  cur=i; mode=m; fill(i);
+  ov.classList.remove("open"); ov.classList.add("show");
+  openDoors();
+}
+function move(step){
+  if(busy) return; busy=true;
+  speechSynthesis && speechSynthesis.cancel();
+  ov.classList.remove("open");
+  setTimeout(()=>{ cur=(cur+step+ALL.length)%ALL.length; fill(cur); openDoors(); },850);
+}
+function closeCar(){
+  speechSynthesis && speechSynthesis.cancel();
+  ov.classList.remove("open");
+  setTimeout(()=>{ ov.classList.remove("show"); if(mode==="quiz") newQ(); },700);
+}
+$("prev").onclick=()=>move(-1);
+$("next").onclick=()=>move(1);
+$("again").onclick=speakCur;
+$("close").onclick=closeCar;
+
+// ---------- あてっこ ----------
+let target=null, stars=0;
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function newQ(){
+  const pool=shuffle(ALL.slice()).slice(0,3);
+  target=pool[Math.floor(Math.random()*3)];
+  const box=$("choices"); box.innerHTML="";
+  pool.forEach(d=>{
+    const b=document.createElement("button");
+    b.className="choice"; b.textContent=d.ch; b.style.background=d.color;
+    b.onclick=()=>{
+      if(d===target){
+        stars++; $("stars").textContent="⭐".repeat(stars);
+        openCar(ALL.indexOf(d),"quiz");
+      }else{
+        b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake");
+        say("おしい！", "「"+target.ch+"」は どれかな？");
+      }
+    };
+    box.appendChild(b);
+  });
+  askQ();
+}
+function askQ(){ if(target) say("「"+target.ch+"」は どれかな？"); }
+$("qsay").onclick=askQ;
+
+// ---------- タブ ----------
+$("tabSee").onclick=()=>{
+  $("tabSee").classList.add("on"); $("tabQuiz").classList.remove("on");
+  grid.style.display="grid"; $("quiz").style.display="none";
+};
+$("tabQuiz").onclick=()=>{
+  $("tabQuiz").classList.add("on"); $("tabSee").classList.remove("on");
+  grid.style.display="none"; $("quiz").style.display="block";
+  newQ();
+};
+</script>
+</body>
+</html>
